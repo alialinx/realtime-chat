@@ -23,7 +23,7 @@ def get_messages(conversation_id:int,current: dict = Depends(current_user), page
 
         offset = page * limit
 
-        cur.execute("select 1 from conversations where id = %s and (user1_id = %s OR user2_id = %s)", (conversation_id, user_id))
+        cur.execute("select 1 from conversations where id = %s and (user1_id = %s OR user2_id = %s)", (conversation_id, user_id, user_id))
 
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Conversation not found")
@@ -54,7 +54,7 @@ def create_new_message(conversation_id:int, payload:MessageCreate, current: dict
 
         user_id = current["user_id"]
 
-        cur.execute("select 1 from conversations where id = %s and (user1_id = %s OR user2_id = %s)", (conversation_id, user_id))
+        cur.execute("select 1 from conversations where id = %s and (user1_id = %s OR user2_id = %s)", (conversation_id, user_id, user_id))
 
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Conversation not found")
@@ -63,11 +63,13 @@ def create_new_message(conversation_id:int, payload:MessageCreate, current: dict
         cur.execute(
             """
             INSERT INTO messages (conversation_id,sender_id, body) 
-            VALUES (%s, %s, %s) RETURNING conversation_id, sender_id, body, created_at, delivered_at, read_at;
-            (conversation_id, user_id, payload.body)""")
+            VALUES (%s, %s, %s)
+            RETURNING conversation_id, sender_id, body, created_at, delivered_at, read_at
+            """,
+            (conversation_id, user_id, payload.body))
 
         msg = cur.fetchone()
-        cur.commit()
+        conn.commit()
 
         return {"success": True, "message": "sent", "data": msg}
 

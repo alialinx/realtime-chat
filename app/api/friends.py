@@ -35,7 +35,7 @@ def get_friends(current: dict = Depends(current_user)):
         close_db(conn, cur)
 
 
-@router.delete("/friends/{user_id}", summary="Delete a friend", tags=["Friends"])
+@router.delete("/friends/{friend_id}", summary="Delete a friend", tags=["Friends"])
 def delete_friend(friend_id: int, current: dict = Depends(current_user)):
     conn, cur = get_db()
     try:
@@ -48,6 +48,10 @@ def delete_friend(friend_id: int, current: dict = Depends(current_user)):
             raise HTTPException(status_code=404, detail="Friend not found")
 
         cur.execute("DELETE FROM friends WHERE user_id = %s AND friend_id = %s", (user_id, friend_id))
+        cur.execute("DELETE FROM friends WHERE user_id = %s AND friend_id = %s", (friend_id, user_id))
+
+        cur.execute("UPDATE friend_requests SET status = 'canceled' WHERE (from_user_id = %s AND to_user_id = %s) OR (from_user_id = %s AND to_user_id = %s)", (user_id, friend_id, friend_id, user_id))
+
         conn.commit()
 
         return {"succes": True, "message": "Friend deleted"}
@@ -63,7 +67,7 @@ def get_friends_requests(current: dict = Depends(current_user)):
         user_id = current["user_id"]
         cur.execute(
             """
-            SELECT fr.id AS request_id u.id, u.username, fr.created_at
+            SELECT fr.id AS request_id, u.id AS user_id, u.username, fr.created_at
             FROM friend_requests fr
                      JOIN users u ON fr.from_user_id = u.id
             WHERE fr.to_user_id = %s
@@ -107,8 +111,16 @@ def request_friend(friend_id: int, current: dict = Depends(current_user)):
         if existing_requests:
             raise HTTPException(status_code=409, detail="Friend request already sent")
 
-        cur.execute("INSERT INTO friend_requests (from_user_id, to_user_id, status) VALUES (%s, %s,'pending') RETURNING id ", (user_id, friend_id))
-
+        cur.execute(
+            """
+            INSERT INTO friend_requests (from_user_id, to_user_id, status)
+            VALUES (%s, %s, 'pending') ON CONFLICT (from_user_id, to_user_id)
+               DO
+            UPDATE SET status = 'pending'
+                RETURNING id
+            """,
+            (user_id, friend_id),
+        )
         request_id = cur.fetchone()["id"]
         conn.commit()
         return {"success": True, "message": "Friend request sent", "request_id": request_id}

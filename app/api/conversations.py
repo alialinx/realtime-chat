@@ -8,13 +8,22 @@ router = APIRouter()
 
 @router.get("/conversations", summary="Get all conversations", tags=["Conversations"])
 def get_conversations(current: dict = Depends(current_user)):
-    conn, cursor = get_db()
+    conn, cur = get_db()
 
     try:
         user_id = current["user_id"]
 
-        cursor.execute("SELECT * FROM conversations WHERE user_id = ?", (user_id,))
-        conversations = cursor.fetchall()
+        cur.execute(
+            """
+            SELECT id, user1_id, user2_id, created_at
+            FROM conversations
+            WHERE user1_id = %s
+               OR user2_id = %s
+            ORDER BY created_at DESC
+            """,
+            (user_id, user_id),
+        )
+        conversations = cur.fetchall()
 
         if not conversations:
             return {"success": False, "message": "No conversations found", "data": [[]]}
@@ -22,7 +31,7 @@ def get_conversations(current: dict = Depends(current_user)):
         return {"success": True, "message": "All conversations found", "data": conversations}
 
     finally:
-        close_db(conn, cursor)
+        close_db(conn, cur)
 
 
 @router.post("/conversations/{friend_id}", summary="Create a new conversation", tags=["Conversations"])

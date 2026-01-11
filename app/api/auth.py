@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.functions import hash_password, verify_password
 from app.api.schemas.schemas import UserRegister
@@ -30,13 +31,14 @@ def register(payload: UserRegister):
 
         cur.execute(
             """
-            insert into users (username, email, password_hash, is_admin, is_active)
-            values (%s, %s, %s, %s, %s) RETURNING id, username, email, is_admin, is_active, created_at
+            insert into users (username, email, password_hash)
+            values (%s, %s, %s) RETURNING id, username, email, is_admin, is_active, created_at
             """,
-            (data["username"], data["email"], data["password_hash"],)
+            (data["username"], data["email"], data["password_hash"])
         )
 
         user = cur.fetchone()
+
         conn.commit()
     finally:
         close_db(conn, cur)
@@ -45,9 +47,12 @@ def register(payload: UserRegister):
 
 
 @router.post('/login', summary='Login a user', tags=['Login'])
-def login(username: str, password: str):
+def login(form: OAuth2PasswordRequestForm = Depends()):
     conn, cur = get_db()
     try:
+
+        username = form.username
+        password = form.password
 
         now = datetime.now(timezone.utc)
 
@@ -65,7 +70,7 @@ def login(username: str, password: str):
 
         token ,expire_at = active_or_new_token(user)
 
-        cur.execute("update users set last_login_at = %s where username = %s", (now, user["id"]))
+        cur.execute("UPDATE users SET last_login_at = %s WHERE id = %s", (now, user["id"]))
         conn.commit()
     finally:
         close_db(conn, cur)
