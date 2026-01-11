@@ -1,12 +1,11 @@
 from datetime import timedelta, datetime, timezone
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-
 import jwt
 
+from app.api.functions import ensure_utc_aware
 from app.config import TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from app.db.db import get_db, close_db
-from app.functions import ensure_utc_aware
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
