@@ -80,20 +80,18 @@ def get_friends_requests(current: dict = Depends(current_user)):
         close_db(conn, cur)
 
 
-@router.post("/friends/requests/{username}", summary="Request a friend request", tags=["friends request"])
-def request_friend(username: str, current: dict = Depends(current_user)):
+@router.post("/friends/requests/{friend_id}", summary="Request a friend request", tags=["friends request"])
+def request_friend(friend_id: int, current: dict = Depends(current_user)):
     conn, cur = get_db()
     try:
         user_id = current["user_id"]
 
-        cur.execute("SELECT id FROM users WHERE username = %s", (username,))
+        cur.execute("SELECT id FROM users WHERE id = %s", (friend_id,))
 
         friend = cur.fetchone()
 
         if not friend:
             raise HTTPException(status_code=404, detail="User not found")
-
-        friend_id = friend["id"]
 
         if friend_id == user_id:
             raise HTTPException(status_code=400, detail="You cannot send a friend request to yourself")
