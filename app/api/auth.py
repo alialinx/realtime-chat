@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 
 from app.api.functions import hash_password, verify_password
+from app.api.schemas.schemas import UserRegister
 from app.db.db import get_db, close_db
-from app.schemas.schemas import UserRegister
 from app.tokens.token import active_or_new_token
 
 router = APIRouter()

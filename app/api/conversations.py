@@ -6,7 +6,7 @@ from app.tokens.token import current_user
 router = APIRouter()
 
 
-@router.get("/conversations", summary="Get all conversations", tags=["conversations"])
+@router.get("/conversations", summary="Get all conversations", tags=["Conversations"])
 def get_conversations(current: dict = Depends(current_user)):
     conn, cursor = get_db()
 
@@ -25,7 +25,7 @@ def get_conversations(current: dict = Depends(current_user)):
         close_db(conn, cursor)
 
 
-@router.post("/conversations/{friend_id}", summary="Create a new conversation", tags=["conversations"])
+@router.post("/conversations/{friend_id}", summary="Create a new conversation", tags=["Conversations"])
 def post_conversation(friend_id: int, current: dict = Depends(current_user)):
     conn, cur = get_db()
 

@@ -6,7 +6,7 @@ from app.tokens.token import current_user
 router = APIRouter()
 
 
-@router.get("/friends", summary="Get all friends", tags=["friends"])
+@router.get("/friends", summary="Get all friends", tags=["Friends"])
 def get_friends(current: dict = Depends(current_user)):
     print(current)
     conn, cur = get_db()
@@ -35,7 +35,7 @@ def get_friends(current: dict = Depends(current_user)):
         close_db(conn, cur)
 
 
-@router.delete("/friends/{user_id}", summary="Delete a friend", tags=["friends"])
+@router.delete("/friends/{user_id}", summary="Delete a friend", tags=["Friends"])
 def delete_friend(friend_id: int, current: dict = Depends(current_user)):
     conn, cur = get_db()
     try:
@@ -56,7 +56,7 @@ def delete_friend(friend_id: int, current: dict = Depends(current_user)):
         close_db(conn, cur)
 
 
-@router.get("/friends/requests", summary="Get friend requests", tags=["friends requests"])
+@router.get("/friends/requests", summary="Get friend requests", tags=["Friend Requests"])
 def get_friends_requests(current: dict = Depends(current_user)):
     conn, cur = get_db()
     try:
@@ -80,7 +80,7 @@ def get_friends_requests(current: dict = Depends(current_user)):
         close_db(conn, cur)
 
 
-@router.post("/friends/requests/{friend_id}", summary="Request a friend request", tags=["friends request"])
+@router.post("/friends/requests/{friend_id}", summary="Request a friend request", tags=["Friend Requests"])
 def request_friend(friend_id: int, current: dict = Depends(current_user)):
     conn, cur = get_db()
     try:
@@ -117,7 +117,7 @@ def request_friend(friend_id: int, current: dict = Depends(current_user)):
         close_db(conn, cur)
 
 
-@router.post("/requests/{request_id}/accept", summary="Accept friend request", tags=["friends request"])
+@router.post("/requests/{request_id}/accept", summary="Accept friend request", tags=["Friend Requests"])
 def accept_friend(request_id: int, current: dict = Depends(current_user)):
     conn, cur = get_db()
 
@@ -146,7 +146,7 @@ def accept_friend(request_id: int, current: dict = Depends(current_user)):
     finally:
         close_db(conn, cur)
 
-@router.post("/requests/{request_id}/decline", summary="Decline friend request", tags=["friends request"])
+@router.post("/requests/{request_id}/decline", summary="Decline friend request", tags=["Friend Requests"])
 def decline_friend(request_id: int, current: dict = Depends(current_user)):
     conn, cur = get_db()
 
