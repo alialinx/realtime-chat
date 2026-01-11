@@ -4,6 +4,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.security import HTTPBasic
 from starlette.middleware.cors import CORSMiddleware
 
+from app.api import auth, friends, conversations, messages
 
 app = FastAPI(
     title="Realtime - Chat",
@@ -41,4 +42,7 @@ router = APIRouter()
 
 app = FastAPI(title="Realtime - Chat API")
 
-# app.include_router(auth.router)
+app.include_router(auth.router)
+app.include_router(friends.router)
+app.include_router(conversations.router)
+app.include_router(messages.router)
