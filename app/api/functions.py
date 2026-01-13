@@ -1,19 +1,162 @@
-from datetime import timezone
 
-from passlib.handlers.sha2_crypt import sha256_crypt
+from app.api.tokens.token import current_user
+from app.db.db import get_db, close_db
+
+def serialize_message(row: dict) -> dict:
+    row = dict(row)
+
+    for k in ("created_at", "delivered_at", "read_at"):
+        if k in row and row[k] is not None:
+            row[k] = row[k].isoformat()
+
+    return row
 
 
-def hash_password(password: str) -> str:
-    return sha256_crypt.hash(password)
+def get_recipient_id(conversation_id: int, sender_id: int) -> int | None:
+    conn, cur = get_db()
+    try:
+        cur.execute("SELECT user1_id, user2_id FROM conversations WHERE id = %s",(conversation_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+
+        if isinstance(row, dict):
+            u1, u2 = row["user1_id"], row["user2_id"]
+        else:
+            u1, u2 = row[0], row[1]
+
+        return u2 if sender_id == u1 else u1
+    finally:
+        close_db(conn, cur)
 
 
-def verify_password(plain: str, hashed: str) -> bool:
-    return sha256_crypt.verify(plain, hashed)
+def get_user_id_from_token(token):
+
+    token_doc = current_user(token)
+
+    user_id = token_doc['user_id']
+
+    return user_id
 
 
-def ensure_utc_aware(dt):
-    if dt is None:
-        return None
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+def check_conversation(conversation_id:int, user_id:int):
+
+    conn,cur = get_db()
+
+    try:
+        cur.execute("SELECT * FROM conversations WHERE id = %s", (conversation_id,))
+        conversation = cur.fetchone()
+        if not conversation:
+            return False, "Conversation not found"
+
+        print(conversation)
+
+        user_id_list = [conversation['user1_id'],conversation['user2_id']]
+
+        if user_id not in user_id_list:
+            return False, "user not found in conversation"
+        return True, "OK"
+
+
+    finally:
+        close_db(conn,cur)
+
+
+def messages_insert_to_db(conversation_id: int, sender_id: int, body: str) -> dict:
+    conn, cur = get_db()
+    try:
+        cur.execute(
+            """
+            INSERT INTO messages (conversation_id, sender_id, body)
+            VALUES (%s, %s, %s)
+            RETURNING id, conversation_id, sender_id, body, created_at, delivered_at, read_at
+            """,
+            (conversation_id, sender_id, body),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return serialize_message(row)
+    finally:
+        close_db(conn, cur)
+
+
+def set_user_online(user_id: int, online: bool):
+    conn, cur = get_db()
+    try:
+        cur.execute("UPDATE users SET is_online = %s, last_seen_at = now() WHERE id = %s",(online, user_id),)
+        conn.commit()
+    finally:
+        close_db(conn, cur)
+
+def touch_last_seen(user_id: int):
+    conn, cur = get_db()
+    try:
+        cur.execute("UPDATE users SET last_seen_at = now() WHERE id = %s", (user_id,))
+        conn.commit()
+    finally:
+        close_db(conn, cur)
+
+
+def mark_read(message_id: int):
+    conn, cur = get_db()
+    try:
+        cur.execute(
+            """
+            UPDATE messages
+            SET read_at = now()
+            WHERE id = %s AND read_at IS NULL
+            RETURNING id, read_at
+            """,
+            (message_id,)
+        )
+        row = cur.fetchone()
+        conn.commit()
+        if not row:
+            return None
+
+        row = dict(row)
+        row["read_at"] = row["read_at"].isoformat() if row["read_at"] else None
+        return row
+    finally:
+        close_db(conn, cur)
+
+def mark_conversation_read(conversation_id: int, reader_id: int, last_message_id: int) -> int:
+
+    conn, cur = get_db()
+    try:
+        cur.execute(
+            """
+            UPDATE messages
+            SET read_at = now()
+            WHERE conversation_id = %s
+              AND sender_id <> %s
+              AND read_at IS NULL
+              AND id <= %s
+            """,
+            (conversation_id, reader_id, last_message_id),
+        )
+        updated = cur.rowcount
+        conn.commit()
+        return updated
+    finally:
+        close_db(conn, cur)
+
+def mark_delivered(message_id: int) -> dict | None:
+    conn, cur = get_db()
+    try:
+        cur.execute(
+            """
+            UPDATE messages
+            SET delivered_at = now()
+            WHERE id = %s AND delivered_at IS NULL
+            RETURNING id, conversation_id, sender_id, body, created_at, delivered_at, read_at
+            """,
+            (message_id,),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        if not row:
+            return None
+        return serialize_message(row)
+    finally:
+        close_db(conn, cur)

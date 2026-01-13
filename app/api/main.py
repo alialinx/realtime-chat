@@ -5,6 +5,7 @@ from fastapi.security import HTTPBasic
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api import auth, friends, conversations, messages
+from app.api.ws import ws
 
 app = FastAPI(
     title="Realtime - Chat",
@@ -24,7 +25,7 @@ security = HTTPBasic()
 async def homepage():
     return get_swagger_ui_html(
         openapi_url=app.openapi_url,
-        title="Mail Tester",
+        title="Realtime - Chat",
     )
 
 
@@ -40,9 +41,8 @@ app.add_middleware(
 # Router
 router = APIRouter()
 
-app = FastAPI(title="Realtime - Chat API")
-
 app.include_router(auth.router)
 app.include_router(friends.router)
 app.include_router(conversations.router)
 app.include_router(messages.router)
+app.include_router(ws.router)

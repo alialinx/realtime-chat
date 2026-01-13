@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 
 from app.api.schemas.schemas import MessageCreate
+from app.api.tokens.token import current_user
 from app.db.db import get_db, close_db
-from app.tokens.token import current_user
 
 router = APIRouter()
 
