@@ -3,10 +3,11 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.api.functions import hash_password, verify_password
 from app.api.schemas.schemas import UserRegister
+from app.api.tokens.token import active_or_new_token, current_user
+from app.api.utils import hash_password, verify_password
+from app.api.ws.ws import manager
 from app.db.db import get_db, close_db
-from app.tokens.token import active_or_new_token
 
 router = APIRouter()
 
@@ -79,5 +80,16 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
 
 
 @router.post('/logout', summary='Logout a user', tags=['Logout'])
-def logout():
-    return {"success": True, "message": "Logout successful"}
+def logout(current: dict = Depends(current_user)):
+    conn, cur = get_db()
+    try:
+        user_id = current["user_id"]
+        if not manager.is_user_online(user_id):
+            cur.execute("UPDATE users SET is_online = FALSE, last_seen_at = now() WHERE id = %s", (user_id,))
+        else:
+            cur.execute("UPDATE users SET last_seen_at = now() WHERE id = %s", (user_id,))
+
+        conn.commit()
+        return {"success": True, "message": "Logout successful"}
+    finally:
+        close_db(conn, cur)
