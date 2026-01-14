@@ -1,29 +1,55 @@
 # realtime-chat
-Realtime - Chat
 
+A production-ready **Realtime Chat Backend** built with **FastAPI + WebSocket + PostgreSQL**.
 
+✅ Live test (frontend + backend):
+- You can test the public chat UI at: **https://chat.alialin.me**
 
-
-
-
-
-
-
-
-
-# PostgreSQL Database Schema (Realtime Chat)
-
-This project uses **PostgreSQL** for persistence.  
-Below is the complete schema used for authentication, real-time messaging, and the optional friends system.
+This backend provides:
+- JWT authentication (access token)
+- 1-to-1 direct conversations
+- Realtime messaging via WebSocket
+- Message delivery + read receipts (WhatsApp-like)
+- Optional friends system (requests / accept / decline)
+- Multi-tab / multi-device WebSocket support
 
 ---
 
-## Full SQL Schema
+## Tech Stack
+- Python + FastAPI
+- PostgreSQL
+- WebSocket (FastAPI)
+- Docker / Docker Compose
+- Nginx (reverse proxy + TLS)
+
+---
+
+## Features
+- Register / Login / Logout
+- Token stored in DB (`tokens` table)
+- Direct conversations (unique user pair)
+- Realtime broadcast to all connected clients in a conversation
+- Heartbeat (ping / pong)
+- Message status fields:
+  - `created_at` (sent)
+  - `delivered_at` (delivered)
+  - `read_at` (read)
+- Friends system:
+  - send request
+  - accept / decline
+  - friends table
+- Blocking system (optional)
+
+---
+
+## PostgreSQL Database Schema
+
+This project uses **PostgreSQL** for persistence.
+
+### Full SQL Schema
 
 ```sql
-
 -- USERS
-
 CREATE TABLE IF NOT EXISTS users
 (
     id            SERIAL PRIMARY KEY,
@@ -36,16 +62,12 @@ CREATE TABLE IF NOT EXISTS users
     is_active     BOOLEAN NOT NULL DEFAULT true,
 
     last_login_at TIMESTAMPTZ NULL,
-    
+
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-
-
 -- TOKENS
-
-
 CREATE TABLE IF NOT EXISTS tokens
 (
     id         SERIAL PRIMARY KEY,
@@ -58,11 +80,7 @@ CREATE TABLE IF NOT EXISTS tokens
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tokens_token ON tokens(token);
 CREATE INDEX IF NOT EXISTS idx_tokens_user_id ON tokens(user_id);
 
-
-
 -- CONVERSATIONS (DM)
-
-
 CREATE TABLE IF NOT EXISTS conversations
 (
     id         SERIAL PRIMARY KEY,
@@ -76,9 +94,7 @@ CREATE TABLE IF NOT EXISTS conversations
 CREATE INDEX IF NOT EXISTS idx_conversations_user1 ON conversations(user1_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_user2 ON conversations(user2_id);
 
-
 -- MESSAGES
-
 CREATE TABLE IF NOT EXISTS messages
 (
     id              SERIAL PRIMARY KEY,
@@ -95,11 +111,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 
-
-
-
 -- FRIEND REQUESTS
-
 CREATE TABLE IF NOT EXISTS friend_requests
 (
     id           BIGSERIAL PRIMARY KEY,
@@ -118,10 +130,7 @@ CREATE INDEX IF NOT EXISTS idx_friend_requests_to_user ON friend_requests(to_use
 CREATE INDEX IF NOT EXISTS idx_friend_requests_from_user ON friend_requests(from_user_id);
 CREATE INDEX IF NOT EXISTS idx_friend_requests_status ON friend_requests(status);
 
-
-
 -- FRIENDS
-
 CREATE TABLE IF NOT EXISTS friends
 (
     id         BIGSERIAL PRIMARY KEY,
@@ -136,10 +145,7 @@ CREATE TABLE IF NOT EXISTS friends
 CREATE INDEX IF NOT EXISTS idx_friends_user_id ON friends(user_id);
 CREATE INDEX IF NOT EXISTS idx_friends_friend_id ON friends(friend_id);
 
-=
 -- BLOCKING
-
-
 CREATE TABLE IF NOT EXISTS blocks
 (
     id         BIGSERIAL PRIMARY KEY,
@@ -153,330 +159,268 @@ CREATE TABLE IF NOT EXISTS blocks
 
 CREATE INDEX IF NOT EXISTS idx_blocks_blocker_id ON blocks(blocker_id);
 CREATE INDEX IF NOT EXISTS idx_blocks_blocked_id ON blocks(blocked_id);
-````
-
-
-# WebSocket Realtime Chat (FastAPI) – System Documentation
-
-This project implements a **realtime chat** system using **FastAPI WebSocket**.
-
-The main idea:
-
-- Users connect to a WebSocket endpoint for a conversation.
-- The server keeps active WebSocket connections in memory.
-- When a message is sent:
-  1) it is saved into PostgreSQL (`messages` table)
-  2) it is broadcasted to all connected users in that conversation
-
-This document explains the WebSocket flow and the realtime connection management logic in simple English.
+```
 
 ---
 
-## 1) WebSocket Endpoint
+## HTTP API Endpoints
 
-WebSocket URL:
+### Authentication
 
-/ws/conversations/{conversation_id}?token=JWT_TOKEN
+**POST /register**  
+Create a new user.
+
+Request (JSON):
+```json
+{
+  "username": "ali",
+  "email": "ali@example.com",
+  "password": "StrongPassword123"
+}
+```
+
+**POST /login**  
+Login and receive an access token.  
+Uses `application/x-www-form-urlencoded` (OAuth2PasswordRequestForm).
 
 Example:
+```bash
+curl -X POST "http://127.0.0.1:7722/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=ali&password=StrongPassword123"
+```
 
+Response:
+```json
+{
+  "access_token": "JWT_TOKEN_HERE",
+  "token_type": "bearer"
+}
+```
+
+**POST /logout**  
+Logout (requires Bearer token).
+
+Example:
+```bash
+curl -X POST "http://127.0.0.1:7722/logout" \
+  -H "Authorization: Bearer JWT_TOKEN_HERE"
+```
+
+---
+
+### Friends
+
+**GET /friends**  
+Returns your friends list.
+
+**GET /friends/requests**  
+Returns pending friend requests.
+
+**POST /friends/requests/{friend_id}**  
+Send a friend request.
+
+**POST /requests/{request_id}/accept**  
+Accept a friend request.
+
+**POST /requests/{request_id}/decline**  
+Decline a friend request.
+
+---
+
+### Conversations & Messages
+
+**POST /conversations/{friend_id}**  
+Creates (or returns) a DM conversation between you and the friend.
+
+Response example:
+```json
+{ "conversation_id": 1 }
+```
+
+**GET /messages/{conversation_id}?page=0&limit=100**  
+Fetch messages of a conversation (paginated).
+
+---
+
+## WebSocket Realtime Chat
+
+### WebSocket Endpoint
+
+Format:
+```
+/ws/conversations/{conversation_id}?token=JWT_TOKEN
+```
+
+Example:
+```
 ws://127.0.0.1:7722/ws/conversations/1?token=eyJhbGciOi...
+```
 
-
-
-
-### Basic flow
-
-1. Read JWT token from query params
-2. Decode token → get `user_id`
-3. Check if user belongs to the conversation (security)
-4. Accept WebSocket connection
-5. Register WebSocket in ConnectionManager
-6. Start infinite `while True` receive loop
+### Connection Flow (simple)
+1) Read `token` from query params
+2) Decode token → get `user_id`
+3) Verify user belongs to the conversation
+4) Accept WebSocket
+5) Store the WebSocket in ConnectionManager
+6) Start receiving events in a loop
 
 ---
 
-## 2) ConnectionManager (Core Concept)
+## ConnectionManager (in-memory)
 
-The ConnectionManager stores and manages active realtime connections.
+The server stores active sockets in memory:
 
-It uses **3 mappings**:
+- `active_connections[conversation_id] -> Set[WebSocket]`  
+  Used to broadcast to a conversation.
 
-### A) `active_connections`
+- `user_connections[user_id] -> Set[WebSocket]`  
+  Supports multi-tab / multi-device.
 
-- Type: `Dict[int, Set[WebSocket]]`
-- Key: `conversation_id`
-- Value: all WebSockets connected to that conversation
-
-This is used to broadcast messages to a specific conversation room.
-
----
-
-### B) `user_connections`
-
-- Type: `Dict[int, Set[WebSocket]]`
-- Key: `user_id`
-- Value: all WebSockets opened by that user
-
-This supports multi-tab and multi-device use cases.
-
-A user is online if:
-
-- `len(user_connections[user_id]) > 0`
+- `ws_user[WebSocket] -> user_id`  
+  Helps cleanup on disconnect.
 
 ---
 
-### C) `ws_user`
+## WebSocket Event Protocol
 
-- Type: `Dict[WebSocket, int]`
-- Key: websocket instance
-- Value: user_id
+All events are JSON.
 
-This helps to identify the user that owns a WebSocket during cleanup.
-
----
-
-## 3) Broadcasting Messages
-
-Broadcast means:
-
-> Send the same JSON payload to all users connected to the same conversation.
-
-Pseudo logic:
-
-- loop all websockets in `active_connections[conversation_id]`
-- send message using `ws.send_json(...)`
-
-### Handling broken (dead) sockets
-
-Sometimes clients disconnect without sending a proper close event (internet crash, browser closed, etc.)
-
-During broadcast:
-- if sending fails (`send_json` raises exception)
-- mark that websocket as dead
-- remove it from memory to avoid memory leaks
-
----
-
-## 4) Heartbeat (Ping / Pong)
-
-Presence and online status require heartbeat updates.
-
-Clients should send a ping every 20–30 seconds:
-
-
+### 1) Heartbeat (ping / pong)
 
 Client → Server:
 ```json
 { "type": "ping" }
-````
+```
+
 Server → Client:
-````json
+```json
 { "type": "pong" }
-````
+```
 
-
-
-## 5) WebSocket Event Protocol
-
-
-All WebSocket messages are JSON events.
-
-5.1 Send message event
+### 2) Send message
 
 Client → Server:
-
-````json
+```json
 {
   "type": "message.send",
   "body": "hello"
 }
-
-````
-
-Server:
-
-inserts message into DB
-
-broadcasts to conversation
+```
 
 Server → Clients:
-
-## 5.2 Read receipt event
-
-Client sends this when conversation is opened / messages are visible.
-
-Client → Server:
-
-````json
+```json
 {
-  "type": "message.read",
-  "message_id": 21
-}
-````
-
-Server:
-
-updates DB read_at = now()
-
-broadcasts read event
-
-Server → Clients:
-
-````json
-{
-  "type": "message.read",
+  "type": "message.new",
   "data": {
     "id": 21,
-    "read_at": "2026-01-13T17:05:12.000000+00:00"
+    "conversation_id": 1,
+    "sender_id": 2,
+    "body": "hello",
+    "created_at": "2026-01-13T17:00:29.317890+00:00",
+    "delivered_at": null,
+    "read_at": null
   }
 }
-````
+```
 
+### 3) Read receipt
 
----
-
-## 6) WhatsApp-Style Message Status Logic (✅ / ✅✅ / Read)
-
-This system supports WhatsApp-like message states:
-
-### ✅ Sent (single tick)
-
-A message is considered **sent** when it is stored in the database successfully.
-
-- `created_at` is always filled
-
----
-
-### ✅✅ Delivered (double tick)
-
-A message is considered **delivered** when the recipient is **online**
-(has at least 1 active WebSocket connection).
-
-Important:
-- recipient does NOT need to open the conversation screen
-- recipient only needs to be online globally
-
-- `delivered_at` is filled only when recipient user is online
-
----
-
-### Read (read receipt)
-
-A message is considered **read** only when the recipient opens that conversation.
-
-- `read_at` is filled only after client sends `message.read`
-
----
-
-## 7) JSON Serialization Notes
-
-Database returns timestamps as Python `datetime` objects.
-
-WebSocket can only send JSON serializable data.
-
-Before broadcasting:
-- convert all datetime fields using `.isoformat()`
-
-Example:
-- `created_at.isoformat()`
-- `delivered_at.isoformat()`
-- `read_at.isoformat()`
-
----
-
-## 8) Multi-tab / Multi-device Support
-
-The same user can open multiple sessions:
-
-- multiple browser tabs
-- multiple browsers
-- desktop + mobile
-
-This is why `user_connections[user_id]` is a set.
-
-Online check:
-- user is online if they have at least 1 active WebSocket connection.
-
----
-
-## 9) Database Fields (Presence / Delivery / Read)
-
-### users table
-
-Required fields:
-
-- `is_online BOOLEAN NOT NULL DEFAULT FALSE`
-- `last_seen_at TIMESTAMPTZ`
-
-### messages table
-
-Required fields:
-
-- `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`
-- `delivered_at TIMESTAMPTZ`
-- `read_at TIMESTAMPTZ`
-
----
-
-## 10) SQL Setup (Migrations)
-
-Add online presence fields:
-
-```sql
-ALTER TABLE users
-ADD COLUMN IF NOT EXISTS is_online BOOLEAN NOT NULL DEFAULT FALSE;
-
-ALTER TABLE users
-ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
-````
-
-## 11) Testing WebSocket
-
-You can test the realtime chat using a browser extension like **"Simple WebSocket Client"**.
-
-### 11.1 Connect
-
-Open a WebSocket connection using this URL format:
-
-`ws://127.0.0.1:7722/ws/conversations/1?token=YOUR_TOKEN`
-
-- `1` = conversation_id
-- `YOUR_TOKEN` = JWT token received from `/login`
-
-### 11.2 Send a message
-
-Send JSON payload:
-
+Client → Server:
 ```json
-{"type":"message.send","body":"selam"}`
-````
-Expected broadcast example:
+{
+  "type": "conversation.read",
+  "last_message_id": 21
+}
+```
 
+Server → Clients:
 ```json
-{"type":"message.new","data":{"id":21,"conversation_id":1,"sender_id":2,"body":"selam","created_at":"2026-01-13T17:00:29.317890+00:00","delivered_at":null,"read_at":null}}`
-````
-### 11.3 Heartbeat (ping / pong)
+{
+  "type": "conversation.read",
+  "data": {
+    "conversation_id": 1,
+    "reader_id": 2,
+    "last_message_id": 21,
+    "updated_count": 5
+  }
+}
+```
 
-Send ping every 20–30 seconds:
+---
 
+## Message Status Logic
+
+✅ **Sent**  
+- Message saved in DB → `created_at`
+
+✅✅ **Delivered**  
+- Recipient has at least one active WebSocket connection → set `delivered_at`
+
+✅✅ **Read**  
+- Recipient opens the conversation and sends `conversation.read` → set `read_at`
+
+---
+
+## JSON Serialization Notes
+Timestamps from PostgreSQL are Python `datetime`.  
+Before sending via WebSocket, convert them to strings:
+- `dt.isoformat()`
+
+---
+
+## Run with Docker
+
+Build and start:
+```bash
+docker compose up -d --build
+```
+
+Stop:
+```bash
+docker compose down
+```
+
+---
+
+## Local Development
+
+Run locally:
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Swagger docs:
+- `http://127.0.0.1:8000/docs`
+
+---
+
+## Testing
+
+### 1) Test HTTP Login
+```bash
+curl -X POST "http://127.0.0.1:7722/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=test&password=test"
+```
+
+### 2) Test WebSocket
+Connect:
+```
+ws://127.0.0.1:7722/ws/conversations/1?token=YOUR_TOKEN
+```
+
+Send message:
 ```json
-{"type":"ping"}`
-````
-Server response:
+{"type":"message.send","body":"selam"}
+```
 
+Ping:
 ```json
-{"type":"pong"}`
-````
-### 11.4 Read receipt test
+{"type":"ping"}
+```
 
-When the recipient opens the chat screen, the client should send:
-
+Read:
 ```json
-{"type":"message.read","message_id":21}`
-````
-Server will broadcast:
-
-```json
-{"type":"message.read","data":{"id":21,"read_at":"2026-01-13T17:05:12.000000+00:00"}}`
-````
+{"type":"conversation.read","last_message_id":21}
+```
