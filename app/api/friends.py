@@ -84,11 +84,14 @@ def get_friends_requests(current: dict = Depends(current_user)):
         close_db(conn, cur)
 
 
-@router.post("/friends/requests/{friend_id}", summary="Request a friend request", tags=["Friend Requests"])
-def request_friend(friend_id: int, current: dict = Depends(current_user)):
+@router.post("/friends/requests/{username}", summary="Request a friend request", tags=["Friend Requests"])
+def request_friend(username: str, current: dict = Depends(current_user)):
     conn, cur = get_db()
     try:
         user_id = current["user_id"]
+
+        cur.execute("SELECT id FROM users WHERE username = %s", (username,))
+        friend_id = cur.fetchone()
 
         cur.execute("SELECT id FROM users WHERE id = %s", (friend_id,))
 
