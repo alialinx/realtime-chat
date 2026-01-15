@@ -22,7 +22,7 @@ services:
       - .env
     depends_on:
       - realtime-chat-db
-    command: ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7722"]
+    command: ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "7722"]
 
 volumes:
   realtime_chat_pgdata:
