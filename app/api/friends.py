@@ -92,7 +92,8 @@ def request_friend(username: str, current: dict = Depends(current_user)):
 
         cur.execute("SELECT id FROM users WHERE username = %s", (username,))
         friend_id = cur.fetchone().get("id", None)
-        print(friend_id)
+        if not friend_id:
+            raise HTTPException(status_code=404, detail="User not found")
 
         cur.execute("SELECT id FROM users WHERE id = %s", (friend_id,))
 
