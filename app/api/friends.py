@@ -91,7 +91,8 @@ def request_friend(username: str, current: dict = Depends(current_user)):
         user_id = current["user_id"]
 
         cur.execute("SELECT id FROM users WHERE username = %s", (username,))
-        friend_id = cur.fetchone()
+        friend_id = cur.fetchone().get("id", None)
+        print(friend_id)
 
         cur.execute("SELECT id FROM users WHERE id = %s", (friend_id,))
 
