@@ -158,13 +158,22 @@ def mark_group_read(group_id: int, user_id: int) -> None:
 
 
 
-def set_user_online(user_id: int, online: bool):
-    conn, cur = get_db()
+import psycopg2
+
+def set_user_online(user_id: int, is_online: bool) -> bool:
     try:
-        cur.execute("UPDATE users SET is_online = %s, last_seen_at = now() WHERE id = %s",(online, user_id),)
-        conn.commit()
-    finally:
-        close_db(conn, cur)
+        conn, cur = get_db()
+        try:
+            cur.execute(
+                "UPDATE users SET is_online = %s WHERE id = %s",
+                (is_online, user_id),
+            )
+            conn.commit()
+            return True
+        finally:
+            close_db(conn, cur)
+    except psycopg2.OperationalError:
+        return False
 
 def touch_last_seen(user_id: int):
     conn, cur = get_db()

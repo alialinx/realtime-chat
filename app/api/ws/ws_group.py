@@ -1,21 +1,17 @@
-
+import psycopg2
 from fastapi import APIRouter
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from app.api.functions import get_user_id_from_token, check_groups, set_user_online, group_messages_insert_to_db, mark_group_read
 from app.api.ws.connection_manager import ConnectionManager
 
-
 group_manager = ConnectionManager()
 
 router = APIRouter()
 
 
-
-
 @router.websocket('/ws/groups/{group_id}')
 async def web_socker(websocket: WebSocket, group_id: int):
-
     token = websocket.query_params.get('token')
 
     if not token:
@@ -24,18 +20,15 @@ async def web_socker(websocket: WebSocket, group_id: int):
 
     user_id = get_user_id_from_token(token)
 
-
     if not user_id:
         await websocket.close(code=1008)
         return
-
 
     check_group, _ = check_groups(group_id, user_id)
 
     if not check_group:
         await websocket.close(code=1008)
         return
-
 
     await group_manager.connect(group_id, websocket, user_id)
     set_user_online(user_id, True)
@@ -55,7 +48,7 @@ async def web_socker(websocket: WebSocket, group_id: int):
 
                 msg = group_messages_insert_to_db(group_id, user_id, body)
 
-                await group_manager.broadcast(group_id,{"type": "group.message.new", "data": msg},)
+                await group_manager.broadcast(group_id, {"type": "group.message.new", "data": msg}, )
 
 
             elif event_type == "group.read":
