@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 
 from app.api.tokens.token import current_user
 from app.db.db import get_db, close_db
@@ -61,6 +62,28 @@ def check_conversation(conversation_id:int, user_id:int):
     finally:
         close_db(conn,cur)
 
+def check_groups(group_id:int,user_id:int):
+    conn, cur = get_db()
+
+    try:
+        cur.execute("SELECT 1 FROM groups WHERE id = %s", (group_id,))
+        check_group = cur.fetchone()
+
+        if not check_group:
+            return False, "Group not found"
+
+        cur.execute("SELECT 1 FROM group_members WHERE group_id = %s AND member_id = %s", (user_id,user_id),)
+        check_user_in_group = cur.fetchone()
+
+        if not check_user_in_group:
+            return False, "User not found in group"
+
+        return True, "OK"
+
+
+    finally:
+        close_db(conn, cur)
+
 
 def messages_insert_to_db(conversation_id: int, sender_id: int, body: str) -> dict:
     conn, cur = get_db()
@@ -78,6 +101,61 @@ def messages_insert_to_db(conversation_id: int, sender_id: int, body: str) -> di
         return serialize_message(row)
     finally:
         close_db(conn, cur)
+
+
+def group_messages_insert_to_db(group_id: int, sender_id: int, content: str) -> dict:
+    conn, cur = get_db()
+    try:
+        cur.execute(
+            """
+            INSERT INTO group_messages (group_id, sender_id, content)
+            VALUES (%s, %s, %s)
+            RETURNING id, group_id, sender_id, content, created_at
+            """,
+            (group_id, sender_id, content),
+        )
+        row = cur.fetchone()
+
+        # group preview için faydalı
+        cur.execute(
+            "UPDATE groups SET last_message_at = now() WHERE id = %s",
+            (group_id,),
+        )
+
+        conn.commit()
+        if row is None:
+            raise RuntimeError("insert message failed")
+
+        return serialize_message(row)
+    finally:
+        close_db(conn, cur)
+
+def check_group_member(group_id: int, user_id: int) -> bool:
+    conn, cur = get_db()
+    try:
+        cur.execute(
+            "SELECT 1 FROM group_members WHERE group_id = %s AND user_id = %s",
+            (group_id, user_id),
+        )
+        return cur.fetchone() is not None
+    finally:
+        close_db(conn, cur)
+
+def mark_group_read(group_id: int, user_id: int) -> None:
+    conn, cur = get_db()
+    try:
+        cur.execute(
+            """
+            UPDATE group_members
+            SET last_read_at = now()
+            WHERE group_id = %s AND user_id = %s
+            """,
+            (group_id, user_id),
+        )
+        conn.commit()
+    finally:
+        close_db(conn, cur)
+
 
 
 def set_user_online(user_id: int, online: bool):
