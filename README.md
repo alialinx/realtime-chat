@@ -43,6 +43,83 @@ This backend provides:
 ---
 
 
+# Group Chat
+
+This project supports **Group Chat** with realtime messaging.
+
+## Features
+- Create public or private groups
+- Add / remove group members
+- Member roles (owner, admin, member)
+- Group message history (REST)
+- Realtime group messages via WebSocket
+
+---
+
+## Group APIs
+
+### Groups
+- `GET /groups`
+- `GET /groups/{group_id}`
+- `POST /groups`
+- `PUT /groups/{group_id}`
+- `PUT /groups/{group_id}/visibility`
+- `DELETE /groups/{group_id}`
+
+### Group Members
+- `GET /groups/{group_id}/members`
+- `POST /groups/{group_id}/members`
+- `DELETE /groups/{group_id}/members/{member_id}`
+- `DELETE /groups/{group_id}/members/me`
+- `PUT /groups/{group_id}/members/{member_id}/role`
+- `PUT /groups/{group_id}/members/{member_id}/mute`
+
+### Group Messages (REST)
+- `GET /groups/{group_id}/messages`
+- `PUT /groups/{group_id}/messages/{message_id}`
+- `DELETE /groups/{group_id}/messages/{message_id}`
+
+---
+
+## Group WebSocket
+
+### Endpoint
+```
+/ws/groups/{group_id}?token=JWT_TOKEN
+```
+
+### Events
+
+#### Send message
+Client → Server
+```json
+{
+  "type": "group.message.send",
+  "body": "hello"
+}
+```
+
+Server → Group
+```json
+{
+  "type": "group.message.new",
+  "data": {}
+}
+```
+
+#### Heartbeat
+```json
+{ "type": "ping" }
+```
+
+---
+
+## Notes
+- Only group members can connect to group WebSocket
+- Group WebSocket is separate from direct messages
+- Message timestamps are serialized before sending
+
+
 
 ---
 
