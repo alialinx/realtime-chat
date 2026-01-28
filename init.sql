@@ -102,3 +102,92 @@ CREATE TABLE IF NOT EXISTS blocks
 
 CREATE INDEX IF NOT EXISTS idx_blocks_blocker_id ON blocks(blocker_id);
 CREATE INDEX IF NOT EXISTS idx_blocks_blocked_id ON blocks(blocked_id);
+
+
+-- GROUP
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE IF NOT EXISTS groups (
+  id          BIGSERIAL PRIMARY KEY,
+
+  name            varchar(50) NOT NULL,
+  description     varchar(255),
+
+  owner_id        bigint NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+
+  is_private      boolean NOT NULL DEFAULT true,
+
+  member_count    integer NOT NULL DEFAULT 1 CHECK (member_count >= 1),
+
+  last_message_at timestamptz,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+
+  deleted_at      timestamptz,
+
+  CONSTRAINT groups_name_not_blank CHECK (length(trim(name)) > 0)
+);
+
+
+CREATE INDEX IF NOT EXISTS idx_groups_last_message_at
+  ON groups (last_message_at DESC NULLS LAST);
+
+
+CREATE INDEX IF NOT EXISTS idx_groups_owner_id
+  ON groups (owner_id);
+
+
+CREATE INDEX IF NOT EXISTS idx_groups_deleted_at
+  ON groups (deleted_at);
+
+
+-- GROUP MEMBERS
+DO $$ BEGIN
+  CREATE TYPE group_role AS ENUM ('owner','admin','member');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+CREATE TABLE IF NOT EXISTS group_members (
+  group_id   BIGINT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+  role       group_role NOT NULL DEFAULT 'member',
+  is_mute    BOOLEAN NOT NULL DEFAULT false,
+  joined_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  last_read_at TIMESTAMPTZ,
+  muted_until  TIMESTAMPTZ,
+
+  PRIMARY KEY (group_id, user_id)
+);
+
+
+CREATE INDEX IF NOT EXISTS idx_group_members_group_id
+  ON group_members (group_id);
+
+
+CREATE INDEX IF NOT EXISTS idx_group_members_user_id
+  ON group_members (user_id);
+
+
+-- GROUP MESSAGES
+CREATE TABLE IF NOT EXISTS group_messages (
+  id          BIGSERIAL PRIMARY KEY,
+
+  group_id   BIGINT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  sender_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+
+  content    TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  CONSTRAINT group_messages_content_not_blank
+    CHECK (length(trim(content)) > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_group_messages_group_id_created_at
+  ON group_messages (group_id, created_at DESC);
+
+
+CREATE INDEX IF NOT EXISTS idx_group_messages_sender_id_created_at
+  ON group_messages (sender_id, created_at DESC);
