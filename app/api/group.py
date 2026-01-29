@@ -1,4 +1,3 @@
-from aiohttp import payload
 from fastapi import APIRouter, HTTPException, Depends
 from app.api.schemas.schemas import CreateGroup, UpdateGroup, ChangeVisibility, AddMember, ChangeRole, UpdateMessageContent
 from app.api.tokens.token import current_user
@@ -49,7 +48,7 @@ def get_group(group_id: int, current: dict = Depends(current_user)):
 
 
 @router.post("/groups", summary="create new group", tags=["Groups"])
-def create_group(paylaod: CreateGroup, current: dict = Depends(current_user)):
+def create_group(payload: CreateGroup, current: dict = Depends(current_user)):
     con, cur = get_db()
 
     try:
@@ -60,7 +59,7 @@ def create_group(paylaod: CreateGroup, current: dict = Depends(current_user)):
         if check_group:
             raise HTTPException(status_code=400, detail="Group already exists")
 
-        cur.execute("INSERT INTO groups(owner_id, name,description) VALUES(%s, %s, %s) RETURNING id", (user_id, paylaod.name, paylaod.description))
+        cur.execute("INSERT INTO groups(owner_id, name,description) VALUES(%s, %s, %s) RETURNING id", (user_id, payload.name, payload.description))
         row = cur.fetchone()
 
         if row is None:
