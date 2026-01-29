@@ -64,9 +64,6 @@ def check_conversation(conversation_id:int, user_id:int):
 
 def check_groups(group_id:int,user_id:int):
     conn, cur = get_db()
-
-    print("user_id:", user_id)
-    print("group_id:", group_id)
     try:
         cur.execute("SELECT 1 FROM groups WHERE id = %s", (group_id,))
         check_group = cur.fetchone()
@@ -76,7 +73,6 @@ def check_groups(group_id:int,user_id:int):
 
         cur.execute("SELECT 1 FROM group_members WHERE group_id = %s AND user_id = %s", (group_id,user_id),)
         check_user_in_group = cur.fetchone()
-        print(check_user_in_group)
 
         if not check_user_in_group:
             return False, "User not found in group"
@@ -118,6 +114,10 @@ def group_messages_insert_to_db(group_id: int, sender_id: int, content: str) -> 
             (group_id, sender_id, content),
         )
         row = cur.fetchone()
+
+        cur.execute("SELECT username FROM users WHERE id = %s", (sender_id,))
+        sender_name = cur.fetchone()["username"]
+        row["sender_name"] =sender_name
 
         # group preview için faydalı
         cur.execute(
