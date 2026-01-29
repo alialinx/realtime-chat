@@ -2,7 +2,7 @@ import psycopg2
 from fastapi import APIRouter
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
-from app.api.functions import get_user_id_from_token, check_groups, set_user_online, group_messages_insert_to_db, mark_group_read
+from app.api.functions import get_user_id_from_token, check_groups, set_user_online, group_messages_insert_to_db, mark_group_read, is_user_muted_in_group
 from app.api.ws.connection_manager import ConnectionManager
 
 group_manager = ConnectionManager()
@@ -41,6 +41,10 @@ async def web_socker(websocket: WebSocket, group_id: int):
             event_type = data.get('type')
 
             if event_type == "group.message.sent":
+
+                if is_user_muted_in_group(group_id, user_id):
+                    await websocket.send_json({"type": "group.message.error", "detail": "Muted"})
+                    continue
 
                 body = (data.get("body") or "").strip()
                 if not body:

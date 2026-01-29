@@ -101,6 +101,19 @@ def messages_insert_to_db(conversation_id: int, sender_id: int, body: str) -> di
     finally:
         close_db(conn, cur)
 
+def is_user_muted_in_group(group_id: int, user_id: int) -> bool:
+    conn, cur = get_db()
+    try:
+        cur.execute(
+            "SELECT is_mute FROM group_members WHERE group_id = %s AND user_id = %s",
+            (group_id, user_id)
+        )
+        row = cur.fetchone()
+        if row is None:
+            return True
+        return bool(row["is_mute"])
+    finally:
+        close_db(conn, cur)
 
 def group_messages_insert_to_db(group_id: int, sender_id: int, content: str) -> dict:
     conn, cur = get_db()
