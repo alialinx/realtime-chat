@@ -5,7 +5,7 @@ from fastapi.security import HTTPBasic
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api import auth, friends, conversations, messages, group
-from app.api.ws import ws
+from app.api.ws import ws, ws_group
 
 app = FastAPI(
     title="Realtime - Chat",
@@ -46,4 +46,5 @@ app.include_router(friends.router)
 app.include_router(conversations.router)
 app.include_router(messages.router)
 app.include_router(ws.router)
+app.include_router(ws_group.router)
 app.include_router(group.router)

@@ -12,13 +12,16 @@ router = APIRouter()
 
 @router.websocket('/ws/groups/{group_id}')
 async def web_socker(websocket: WebSocket, group_id: int):
+
     token = websocket.query_params.get('token')
+
 
     if not token:
         await websocket.close(code=1008)
         return
 
     user_id = get_user_id_from_token(token)
+
 
     if not user_id:
         await websocket.close(code=1008)

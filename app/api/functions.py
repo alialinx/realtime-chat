@@ -72,7 +72,7 @@ def check_groups(group_id:int,user_id:int):
         if not check_group:
             return False, "Group not found"
 
-        cur.execute("SELECT 1 FROM group_members WHERE group_id = %s AND member_id = %s", (user_id,user_id),)
+        cur.execute("SELECT 1 FROM group_members WHERE group_id = %s AND user_id = %s", (user_id,user_id),)
         check_user_in_group = cur.fetchone()
 
         if not check_user_in_group:
