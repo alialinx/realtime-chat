@@ -1,11 +1,8 @@
 import os
-from urllib.parse import quote_plus
-
 from dotenv import load_dotenv
-from cryptography.fernet import Fernet
 
 load_dotenv()
-
+load_dotenv(override=True)
 
 TOKEN_EXPIRE_MINUTES = int(os.getenv('TOKEN_EXPIRE_MINUTES'))
 SECRET_KEY = os.getenv('SECRET_KEY')
