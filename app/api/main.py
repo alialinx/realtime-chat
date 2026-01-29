@@ -4,7 +4,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.security import HTTPBasic
 from starlette.middleware.cors import CORSMiddleware
 
-from app.api import auth, friends, conversations, messages
+from app.api import auth, friends, conversations, messages, group
 from app.api.ws import ws
 
 app = FastAPI(
@@ -46,3 +46,4 @@ app.include_router(friends.router)
 app.include_router(conversations.router)
 app.include_router(messages.router)
 app.include_router(ws.router)
+app.include_router(group.router)
