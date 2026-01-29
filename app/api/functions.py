@@ -65,6 +65,8 @@ def check_conversation(conversation_id:int, user_id:int):
 def check_groups(group_id:int,user_id:int):
     conn, cur = get_db()
 
+    print("user_id:", user_id)
+    print("group_id:", group_id)
     try:
         cur.execute("SELECT 1 FROM groups WHERE id = %s", (group_id,))
         check_group = cur.fetchone()
@@ -72,8 +74,9 @@ def check_groups(group_id:int,user_id:int):
         if not check_group:
             return False, "Group not found"
 
-        cur.execute("SELECT 1 FROM group_members WHERE group_id = %s AND user_id = %s", (user_id,user_id),)
+        cur.execute("SELECT 1 FROM group_members WHERE group_id = %s AND user_id = %s", (group_id,user_id),)
         check_user_in_group = cur.fetchone()
+        print(check_user_in_group)
 
         if not check_user_in_group:
             return False, "User not found in group"
