@@ -119,6 +119,12 @@ def group_messages_insert_to_db(group_id: int, sender_id: int, content: str) -> 
         sender_name = cur.fetchone()["username"]
         row["sender_name"] =sender_name
 
+
+        cur.execute("SELECT is_mute FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, sender_id,))
+        is_mute = cur.fetchone()["is_mute"]
+        row["is_mute"] = is_mute
+
+        print("row", row)
         # group preview için faydalı
         cur.execute(
             "UPDATE groups SET last_message_at = now() WHERE id = %s",
