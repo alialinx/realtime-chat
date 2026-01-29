@@ -219,11 +219,6 @@ def leave_group(group_id: int, current: dict = Depends(current_user)):
 
 # endregion GROUPS
 
-
-
-
-
-
 # region GROUP MEMBERS
 
 @router.get("/groups/{group_id}/members", summary="get my group's members", tags=["Group Members"])
@@ -244,7 +239,8 @@ def get_group_members(group_id: int, current: dict = Depends(current_user)):
         if cur.fetchone() is None:
             raise HTTPException(status_code=403, detail="You are not a member of this group")
 
-        cur.execute("SELECT user_id, role, joined_at, is_mute FROM group_members WHERE group_id = %s ORDER BY joined_at", (group_id,))
+        cur.execute("""SELECT gm.user_id, u.username, gm.role, gm.joined_at, gm.is_mute FROM group_members gm JOIN users u ON u.id = gm.user_id WHERE gm.group_id = %s ORDER BY gm.joined_at """,(group_id,))
+
 
         members = cur.fetchall()
         return {"success": True, "message": "group members", "members": members}
